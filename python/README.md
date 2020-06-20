@@ -7,6 +7,10 @@
 A tool  for visualizing nested structures in text files such as
 nested ifdefs (``#if ... #if ... #else #endif #endif``).
 
+*Tips:*
+
+Pre- and postprocess input output with standard unix tools such as `grep` or `sed`.
+
 *Usage:*
 
 ```
