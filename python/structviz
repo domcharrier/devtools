@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+import argparse
+import sys
+import re
+
+class Node():
+     def __init__(self,lineno=-1,line="ROOT",parent=None):
+         self.lineno = lineno
+         self.line = line
+         self.parent = parent
+         self.children = []
+     def addChild(self,lineno,line):
+         global current
+         newChild = Node(lineno=lineno,line=line,parent=current)
+         self.children.append(newChild)
+     def descend(self,lineno,line):
+         global current
+         self.addChild(lineno=lineno,line=line)
+         current = self.children[-1]
+     def ascend(self):
+         global current
+         current = current.parent 
+     def traverse(self,indent=""):
+         global indentStr
+         global FORMAT
+         if self.lineno>0:
+             print(FORMAT.format(indent,self.line,filename,str(self.lineno)))
+             indent += indentStr
+         for child in self.children:
+             child.traverse(indent)
+
+def parseArguments():
+    parser = argparse.ArgumentParser(description='structviz - Visualize structures in text files')
+    parser.add_argument('input', help="The input file.", type=argparse.FileType("r"), nargs="?", default=sys.stdin)
+    parser.add_argument('-o,--opening', dest="opening", default="#if", help="Opening pattern, e.g. '#if' [default] or '\{'", type=str)
+    parser.add_argument('-c,--closing', dest="closing", default="#endif", help="Ending pattern, e.g. '#endif' [default]",  type=str)
+    parser.add_argument('-t,--intermediate', dest="intermediate", default=None, help="Other patterns we want to match [default=None]",  type=str)
+    parser.add_argument('-i,--indent-string', dest="indentStr", default=" "*2, help="A string that is added as indent per level of the nested structure, e.g. two whitespaces [default]", type=str)
+    parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
+    parser.add_argument('-n,--show-line-numbers', dest="showLineNumbers", action="store_true", help="Show number of matched lines [default=False]")
+    parser.add_argument('-l,--show-file', dest="showFile", action="store_true", help="Show fie name [default=False]")
+    parser.set_defaults(ignoreCase=True,showLineNumbers=False,showFile=False)
+    return parser.parse_args()
+
+args = parseArguments()
+# parsing
+flag = re.IGNORECASE if args.ignoreCase else 0
+openingOrClosing = re.compile(r"{0}|{1}".format(args.opening,args.closing), flag)
+opening          = re.compile(r"{0}".format(args.opening), flag)
+closing          = re.compile(r"{0}".format(args.closing), flag)
+checkForIntermediates = args.intermediate != None
+if checkForIntermediates:
+    intermediate = re.compile(r"{0}".format(args.intermediate), flag)
+
+current = Node()
+maxLineo = -1
+for index,line in enumerate(args.input.readlines()):
+    lineno=index+1
+    for matching in re.findall(openingOrClosing, line): # opening pattern 
+         closingMatches = closing.match(matching)
+         if not closingMatches and opening.match(matching):
+             current.descend(lineno,line.strip())
+         elif closingMatches:
+             current.ascend()
+         maxLineo = max(maxLineo,lineno)
+    if checkForIntermediates and re.search(intermediate, line): # opening pattern 
+        current.addChild(lineno,line.strip())
+        maxLineo = max(maxLineo,lineno)
+
+# output
+indentStr=args.indentStr
+filename = args.input.name
+linenoChars = str(len(str(maxLineo)))
+FORMAT="{0}{1}"
+if args.showLineNumbers:
+    FORMAT="{3:>"+linenoChars+"}:"+FORMAT 
+if args.showFile:
+   FORMAT="{2} " + FORMAT
+
+current.traverse()
