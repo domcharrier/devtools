@@ -17,7 +17,7 @@ Pre- and postprocess input output with standard unix tools such as `grep` or `se
 usage: structviz [-h] [-o,--opening OPENING] [-c,--closing CLOSING]
                  [-t,--intermediate INTERMEDIATE]
                  [-i,--indent-string INDENTSTR] [-s,--case-sensitive]
-                 [-n,--show-line-numbers] [-l,--show-file]
+                 [-n,--show-line-numbers] [-H,--show-file]
                  [input]
 
 structviz - Visualize structures in text files
@@ -38,7 +38,7 @@ optional arguments:
                         [default=False]
   -n,--show-line-numbers
                         Show number of matched lines [default=False]
-  -l,--show-file        Show fie name [default=False]
+  -H,--show-file        Show fie name [default=False]
 ```
 
 These options are displayed when calling `structviz` with `--help` or `-h`.
@@ -78,7 +78,7 @@ ifndef _STDLIB_H
 Add line  numbers and file names and additionally look for non-group expression 'extern':
 
 ```shell
-structviz /usr/include/stdlib.h -l -n -t "extern"
+structviz /usr/include/stdlib.h -H -n -t "extern"
 ```
 
 *Output 2:*

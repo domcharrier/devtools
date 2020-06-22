@@ -38,7 +38,7 @@ def parseArguments():
     parser.add_argument('-i,--indent-string', dest="indentStr", default=" "*2, help="A string that is added as indent per level of the nested structure, e.g. two whitespaces [default]", type=str)
     parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
     parser.add_argument('-n,--show-line-numbers', dest="showLineNumbers", action="store_true", help="Show number of matched lines [default=False]")
-    parser.add_argument('-l,--show-file', dest="showFile", action="store_true", help="Show fie name [default=False]")
+    parser.add_argument('-H,--show-file', dest="showFile", action="store_true", help="Show fie name [default=False]")
     parser.set_defaults(ignoreCase=True,showLineNumbers=False,showFile=False)
     return parser.parse_args()
 
