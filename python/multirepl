@@ -6,19 +6,22 @@ import re
 def parseArguments():
     parser = argparse.ArgumentParser(description='multirepl - Perform regex replacement operations based on grep-output-like input files')
     parser.add_argument('input', help="File/input stream containing list of lines with pattern: <filepath><separator><lineno>[optional rest of line], typically obtained via grep (or structviz tool).", type=argparse.FileType("r"), nargs="?", default=sys.stdin)
-    parser.add_argument('searchPattern', type=str, help=r"Pattern (regex) to search for per file lineno.")
-    parser.add_argument('replacePattern', type=str, help=r"Pattern (regex) to search for per file lineno.")
+    parser.add_argument('-p,--patterns', dest="patterns", type=str, nargs="+", help=r"Search patterns (first, third, ...) or their substitution (second, fourth, ...). List must have even length.")
     parser.add_argument('--separator', type=str, default=r"\s:", nargs="?", help=r"Characters regarded as separator between filepath and lineno [default='\s:']")
     parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
     parser.add_argument('-i,--in-place', dest="inPlace", action="store_true", help="Apply replacement action directly to original file(s) [default=False]")
     parser.add_argument('-v,--verbose', dest="verbose", action="store_true", help="Verbose output")
-    parser.set_defaults(ignoreCase=True,verbose=False,inPlace=False)
+    parser.add_argument('-c,--show-only-changes', dest="noOutput", action="store_true", help="Show only changes do not generate any output (to stdout or orginal file)")
+    parser.set_defaults(ignoreCase=True,verbose=False,inPlace=False,noOutput=False)
     return parser.parse_args()
 
 args = parseArguments()
 # parsing
 flag = re.IGNORECASE if args.ignoreCase else 0
 locatorPattern = re.compile(r"([^{0}]+)[{0}]+([0-9]+)".format(args.separator), flag)
+if len(args.patterns) % 2 > 0:
+   print("ERROR: list of search and replace patterns is not even. ABORT".format(filepath,lineno),file=sys.stderr)
+   sys.exit()
 
 # convert input into convenient format
 # we want to open files only once.
@@ -42,19 +45,23 @@ for filepath,linenos in locations.items():
     with open(filepath,"r") as target:
         for lineno, line in enumerate(target.readlines()):
             if lineno+1 in linenos:
-                modLine = re.sub(pattern = r"{0}".format(args.searchPattern),\
-                                 repl    = r"{0}".format(args.replacePattern),\
-                                 string  = line.strip("\n"),\
-                                 count   = 0, flags = re.IGNORECASE) # 0 - replace all matches
-                if args.verbose:
-                    print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,line.rstrip("\n"),modLine),file=sys.stderr)
+                modLine = line.strip("\n")
+                for i in range(0,int(len(args.patterns)/2)):
+                    prevModLine = modLine
+                    modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
+                                     repl    = r"{0}".format(args.patterns[2*i+1]),\
+                                     string  = modLine,\
+                                     count   = 0, flags = re.IGNORECASE) # 0 - replace all matches
+                    if args.verbose or args.noOutput:
+                        print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,prevModLine,modLine),file=sys.stderr)
 
                 outputlines += ["{0}\n".format(el) for el in modLine.split("\n")]
             else:
                 outputlines.append(line)
-    if args.inPlace:
-        print("INFO: directly apply changes to original file '{0}'".format(filepath),file=sys.stderr)
-        with open(filepath,"w") as target:
-            target.writelines(outputlines)
-    else: 
-        print("".join(outputlines))
+    if not args.noOutput:
+        if args.inPlace:
+            print("INFO: directly apply changes to original file '{0}'".format(filepath),file=sys.stderr)
+            with open(filepath,"w") as target:
+                target.writelines(outputlines)
+        else: 
+            print("".join(outputlines))
