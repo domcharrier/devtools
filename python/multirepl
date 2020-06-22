@@ -7,6 +7,7 @@ def parseArguments():
     parser = argparse.ArgumentParser(description='multirepl - Perform regex replacement operations based on grep-output-like input files')
     parser.add_argument('input', help="File/input stream containing list of lines with pattern: <filepath><separator><lineno>[optional rest of line], typically obtained via grep (or structviz tool).", type=argparse.FileType("r"), nargs="?", default=sys.stdin)
     parser.add_argument('-p,--patterns', dest="patterns", type=str, nargs="+", help=r"Search patterns (first, third, ...) or their substitution (second, fourth, ...). List must have even length.")
+    parser.add_argument('-w,--wrap-in-ifelse', dest="wrapInIf", default="", nargs="?", help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
     parser.add_argument('--separator', type=str, default=r"\s:", nargs="?", help=r"Characters regarded as separator between filepath and lineno [default='\s:']")
     parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
     parser.add_argument('-i,--in-place', dest="inPlace", action="store_true", help="Apply replacement action directly to original file(s) [default=False]")
@@ -34,7 +35,7 @@ for line in args.input.readlines():
        if args.verbose:
           print("INFO: found filepath '{0}' and line number '{1}'.".format(filepath,lineno),file=sys.stderr)
        if not filepath in locations:
-           locations[filepath] = []
+           locations[filepath] = set()
        locations[filepath].append(lineno)
     else:
        print("WARNING: input line '{0}' is not in format '<filepath><separator><lineno>[optional rest of line]'. Is ignored.".format(locator),file=sys.stderr)
@@ -55,7 +56,17 @@ for filepath,linenos in locations.items():
                     if args.verbose or args.noOutput:
                         print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,prevModLine,modLine),file=sys.stderr)
 
-                outputlines += ["{0}\n".format(el) for el in modLine.split("\n")]
+                newlines = []
+                if len(args.wrapInIf):
+                    newlines.append("#if{}\n".format(args.wrapInIf))
+                newlines += ["{0}\n".format(el) for el in modLine.split("\n")]
+                if len(args.wrapInIf):
+                    newlines.append("#else\n")
+                    newlines.append(line)
+                    newlines.append("#else\n")
+                    if args.verbose or args.noOutput:
+                         print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,prevModLine,"".join(newlines)),file=sys.stderr)
+                outputlines += newlines 
             else:
                 outputlines.append(line)
     if not args.noOutput:
