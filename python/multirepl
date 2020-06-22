@@ -36,9 +36,9 @@ for line in args.input.readlines():
           print("INFO: found filepath '{0}' and line number '{1}'.".format(filepath,lineno),file=sys.stderr)
        if not filepath in locations:
            locations[filepath] = set()
-       locations[filepath].append(lineno)
+       locations[filepath].add(lineno)
     else:
-       print("WARNING: input line '{0}' is not in format '<filepath><separator><lineno>[optional rest of line]'. Is ignored.".format(locator),file=sys.stderr)
+       print("WARNING: input line '{0}' is not in format '<filepath><separator><lineno>[optional rest of line]'. Is ignored.".format(line),file=sys.stderr)
 
 # no go through the lines and replace all search patterns by the replacement pattern in the specified lines
 for filepath,linenos in locations.items():
