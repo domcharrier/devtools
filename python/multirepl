@@ -71,7 +71,8 @@ for filepath,linenos in locations.items():
                 outputlines.append(line)
     if not args.noOutput:
         if args.inPlace:
-            print("INFO: directly apply changes to original file '{0}'".format(filepath),file=sys.stderr)
+            if args.verbose:
+                print("INFO: directly apply changes to original file '{0}'".format(filepath),file=sys.stderr)
             with open(filepath,"w") as target:
                 target.writelines(outputlines)
         else: 
