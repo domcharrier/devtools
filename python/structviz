@@ -32,8 +32,8 @@ class Node():
 def parseArguments():
     parser = argparse.ArgumentParser(description='structviz - Visualize structures in text files')
     parser.add_argument('input', help="The input file.", type=argparse.FileType("r"), nargs="?", default=sys.stdin)
-    parser.add_argument('-o,--opening', dest="opening", default="^\s*#if.+", help="Opening pattern, e.g. '#if' [default] or '\{'", type=str)
-    parser.add_argument('-c,--closing', dest="closing", default="^\s*#endif", help="Ending pattern, e.g. '#endif' [default]",  type=str)
+    parser.add_argument('-o,--opening', dest="opening", default="(#elif|#else|#if)", help="Opening pattern, e.g. '#if' or '\{'", type=str)
+    parser.add_argument('-c,--closing', dest="closing", default="(#elif|#else|#endif)", help="Ending pattern, e.g. '#endif'",  type=str)
     parser.add_argument('-t,--intermediate', dest="intermediate", default=None, help="Other patterns we want to match [default=None]",  type=str)
     parser.add_argument('-i,--indent-string', dest="indentStr", default=" "*2, help="A string that is added as indent per level of the nested structure, e.g. two whitespaces [default]", type=str)
     parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
@@ -45,25 +45,32 @@ def parseArguments():
 args = parseArguments()
 # parsing
 flag = re.IGNORECASE if args.ignoreCase else 0
-searchPatterns = re.compile(r"{0}|{1}".format(args.opening,args.closing), flag)
+searchPatterns = re.compile(r"({0}|{1})".format(args.opening,args.closing), flag)
 closing        = re.compile(r"{0}".format(args.closing), flag)
 opening        = re.compile(r"{0}".format(args.opening), flag)
 checkForIntermediates = args.intermediate != None
 if checkForIntermediates:
     intermediate   = re.compile(r"{0}".format(args.intermediate), flag)
-    searchPatterns = re.compile(r"{0}|{1}|{2}".format(args.opening,args.closing,args.intermediate), flag)
+    searchPatterns = re.compile(r"({0}|{1}|{2})".format(args.opening,args.closing,args.intermediate), flag)
 
 current = Node()
 maxLineo = -1
 for index,line in enumerate(args.input.readlines()):
     lineno=index+1
     openingMatches = False
-    for matching in re.findall(searchPatterns, line): # opening pattern 
-         if closing.match(matching):
+    for result in re.findall(searchPatterns, line): # opening pattern 
+         if type(result) is str:
+             matching = result
+         else:
+             matching = result[0]
+         noClosingOpening = True
+         if closing.match(matching): # 'match from begin
              current.ascend()
-         elif opening.match(matching):
+             noClosingOpening = False
+         if opening.match(matching):
              current.descend(lineno,line.strip())
-         elif checkForIntermediates and intermediate.match(matching): # opening pattern 
+             noClosingOpening = False
+         if noClosingOpening and checkForIntermediates and intermediate.match(matching): # opening pattern 
              current.addChild(lineno,line.strip())
          maxLineo = max(maxLineo,lineno)
 
