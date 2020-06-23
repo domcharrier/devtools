@@ -115,13 +115,13 @@ other expressions.
 
 The tool minimizes the chance of false positives
 when performing replacement operations and can reduce the
-complexity of search and substitution expressions.
+complexity of search expressions.
 
 *Tips:*
 
 * Use the `-H -n` switches to output (relative) filepath and line numbers
 with `grep` and `structviz`.
-
+* Use `grep` multiple lines to filter out certain lines and line ranges
 * Use the `-w` switches to embed a targeted line within an 
 ```
 #if<expression>
@@ -212,7 +212,7 @@ example.f90:5:end subroutine
 
 2. Now "convert" this snippet by performing the following replace operations:
 
-* `end subroutine` by `}"
+* `end subroutine` by `}`
 * `^subroutine` by `void`
 * `(a,b)` by `(int a, int b)`
 * `integer :: <identifier> = 0` by `<identifier> = 0;` (search ignores case by default)
