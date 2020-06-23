@@ -6,7 +6,7 @@ import re
 def parseArguments():
     parser = argparse.ArgumentParser(description='multirepl - Perform regex replacement operations based on grep-output-like input files')
     parser.add_argument('input', help="File/input stream containing list of lines with pattern: <filepath><separator><lineno>[optional rest of line], typically obtained via grep (or structviz tool).", type=argparse.FileType("r"), nargs="?", default=sys.stdin)
-    parser.add_argument('-p,--patterns', dest="patterns", type=str, nargs="+", help=r"Search patterns (first, third, ...) or their substitution (second, fourth, ...). List must have even length.")
+    parser.add_argument('-p,--patterns', dest="patterns", required=True, type=str, nargs="+", help=r"Search patterns (first, third, ...) or their substitution (second, fourth, ...). List must have even length.")
     parser.add_argument('-w,--wrap-in-ifelse', dest="wrapInIf", default="", nargs="?", help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
     parser.add_argument('--separator', type=str, default=r"\s:", nargs="?", help=r"Characters regarded as separator between filepath and lineno [default='\s:']")
     parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
@@ -53,7 +53,7 @@ for filepath,linenos in locations.items():
                                      repl    = r"{0}".format(args.patterns[2*i+1]),\
                                      string  = modLine,\
                                      count   = 0, flags = re.IGNORECASE) # 0 - replace all matches
-                    if args.verbose or args.noOutput:
+                    if (args.verbose or args.noOutput) and prevModLine != modLine:
                         print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,prevModLine,modLine),file=sys.stderr)
 
                 newlines = []

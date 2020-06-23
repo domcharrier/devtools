@@ -1,6 +1,6 @@
 # Python tools
 
-# structviz: Visualize structures in text files
+## STRUCTVIZ: Visualize structures in text files
 
 *Description:*
 
@@ -97,3 +97,151 @@ structviz /usr/include/stdlib.h -H -n -t "extern"
 /usr/include/stdlib.h 154:    #if defined __USE_ISOC99 || (defined __GLIBC_HAVE_LONG_LONG && defined __USE_MISC)
 (more lines)
 ```
+
+## MULTIREPL: Use *grep-output-lik*e input to replace patterns in text files 
+
+*Description:*
+
+`multirepl` takes an *grep-output-like* input (file), which contains lines in the format:
+
+```shell
+<filepath><separator><lineno><optional text>
+```
+(e.g. obtained via `grep -H -n`) to specify lines in files
+where it `replaces` specified search patterns with
+other expressions.
+
+*Selling points:*
+
+The tool minimizes the chance of false positives
+when performing replacement operations and can reduce the
+complexity of search and substitution expressions.
+
+*Tips:*
+
+* Use the `-H -n` switches to output (relative) filepath and line numbers
+with `grep` and `structviz`.
+
+* Use the `-w` switches to embed a targeted line within an 
+```
+#if<expression>
+<modified line>
+#else
+<original line>
+#endif
+```
+construct. All further text replacements will be applied to 
+the modified line.
+
+*Usage:*
+
+```shell
+usage: multirepl [-h] -p,--patterns PATTERNS [PATTERNS ...]
+                 [-w,--wrap-in-ifelse [WRAPINIF]] [--separator [SEPARATOR]]
+                 [-s,--case-sensitive] [-i,--in-place] [-v,--verbose]
+                 [-c,--show-only-changes]
+                 [input]
+
+multirepl - Perform regex replacement operations based on grep-output-like
+input files
+
+positional arguments:
+  input                 File/input stream containing list of lines with
+                        pattern: <filepath><separator><lineno>[optional rest
+                        of line], typically obtained via grep (or structviz
+                        tool).
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p,--patterns PATTERNS [PATTERNS ...]
+                        Search patterns (first, third, ...) or their
+                        substitution (second, fourth, ...). List must have
+                        even length.
+  -w,--wrap-in-ifelse [WRAPINIF]
+                        Wrap modified and original line in '#if<expression>
+                        <modified> #else <original> #endif' construct
+  --separator [SEPARATOR]
+                        Characters regarded as separator between filepath and
+                        lineno [default='\s:']
+  -s,--case-sensitive   Do not ignore case when search for patterns
+                        [default=False]
+  -i,--in-place         Apply replacement action directly to original file(s)
+                        [default=False]
+  -v,--verbose          Verbose output
+  -c,--show-only-changes
+                        Show only changes do not generate any output (to
+                        stdout or orginal file
+```
+
+These options are displayed when calling `structviz` with `--help` or `-h`.
+
+```shell
+structviz --help
+```
+
+### Example
+
+In this example, we will convert the Fortran subroutine to C:
+
+
+```Fortran
+! example.f90
+subroutine mysubroutine(a,b)
+  integer :: a = 0
+  INTEGER :: b = 0
+end subroutine
+```
+
+1. We first select the lines (here, we find all file starts (`^`) with grep):
+
+*Input 1:*
+
+```shell
+grep -H -n "^" example.f90 -H -n
+```
+
+*Output 1:*
+
+```
+example.f90:1:! example.f90
+example.f90:2:subroutine mysubroutine(a,b)
+example.f90:3:  integer :: a = 0
+example.f90:4:  INTEGER :: b = 0
+example.f90:5:end subroutine
+```
+
+2. Now "convert" this snippet by performing the following replace operations:
+
+* `end subroutine` by `}"
+* `^subroutine` by `void`
+* `(a,b)` by `(int a, int b)`
+* `integer :: <identifier> = 0` by `<identifier> = 0;` (search ignores case by default)
+
+```
+grep -H -n "^" example.f90 -H -n\
+   multirepl -p "end subroutine" "}" "^subroutine" "void" "\(a,b\)" "(int a, int b) {" "integer :: (a|b) = 0" "\1 = 0;"
+```
+
+*Output 2:*
+
+```
+! example.f90
+void mysubroutine(int a, int b) {
+  a = 0;
+  b = 0;
+}
+```
+
+3. You can also display the changes that would be made by adding the `-c` switch:
+
+*Output 3:*
+
+```
+INFO: example.f90:1: replace 'subroutine mysubroutine(a,b)' -> 'void mysubroutine(a,b)'
+INFO: example.f90:1: replace 'void mysubroutine(a,b)' -> 'void mysubroutine(int a, int b) {'
+INFO: example.f90:2: replace '  integer :: a = 0' -> '  a = 0;'
+INFO: example.f90:3: replace '  INTEGER :: b = 0' -> '  b = 0;'
+INFO: example.f90:4: replace 'end subroutine' -> '}'
+```
+
+4. To perform all changes in-place, use the '-i' switch (and remove the '-c' switch). 
