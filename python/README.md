@@ -120,9 +120,9 @@ complexity of search expressions.
 *Tips:*
 
 * Use the `-H -n` switches to output (relative) filepath and line numbers
-with `grep` and `structviz`.
-* Use `grep` multiple lines to filter out certain lines and line ranges
-* Use the `-w` switches to embed a targeted line within an 
+with `grep` and `structviz`
+* Chain `grep` multiple times to filter out certain lines and line ranges
+* Use the `-w <expression>` switch to embed a targeted line within an `C` preprocessor construct:
 ```
 #if<expression>
 <modified line>
@@ -130,8 +130,8 @@ with `grep` and `structviz`.
 <original line>
 #endif
 ```
-construct. All further text replacements will be applied to 
-the modified line.
+All further text replacements will be applied to the modified line within
+the `#if<expression>` branch.
 
 *Usage:*
 
@@ -244,4 +244,4 @@ INFO: example.f90:3: replace '  INTEGER :: b = 0' -> '  b = 0;'
 INFO: example.f90:4: replace 'end subroutine' -> '}'
 ```
 
-4. To perform all changes in-place, use the '-i' switch (and remove the '-c' switch). 
+4. To perform all changes in-place, use the `-i` switch (and remove the `-c` switch). 
