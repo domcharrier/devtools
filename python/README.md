@@ -98,11 +98,11 @@ structviz /usr/include/stdlib.h -H -n -t "extern"
 (more lines)
 ```
 
-## MULTIREPL: Use *grep-output-lik*e input to replace patterns in text files 
+## MULTISUB: Use *grep-output-lik*e input to replace patterns in text files 
 
 *Description:*
 
-`multirepl` takes an *grep-output-like* input (file), which contains lines in the format:
+`multisub` takes an *grep-output-like* input (file), which contains lines in the format:
 
 ```shell
 <filepath><separator><lineno><optional text>
@@ -136,13 +136,13 @@ the `#if<expression>` branch.
 *Usage:*
 
 ```shell
-usage: multirepl [-h] -p,--patterns PATTERNS [PATTERNS ...]
+usage: multisub [-h] -p,--patterns PATTERNS [PATTERNS ...]
                  [-w,--wrap-in-ifelse [WRAPINIF]] [--separator [SEPARATOR]]
                  [-s,--case-sensitive] [-i,--in-place] [-v,--verbose]
                  [-c,--show-only-changes]
                  [input]
 
-multirepl - Perform regex replacement operations based on grep-output-like
+multisub - Perform regex replacement operations based on grep-output-like
 input files
 
 positional arguments:
@@ -219,7 +219,7 @@ example.f90:5:end subroutine
 
 ```
 grep -H -n "^" example.f90 -H -n\
-   multirepl -p "end subroutine" "}" "^subroutine" "void" "\(a,b\)" "(int a, int b) {" "integer :: (a|b) = 0" "\1 = 0;"
+   multisub -p "end subroutine" "}" "^subroutine" "void" "\(a,b\)" "(int a, int b) {" "integer :: (a|b) = 0" "\1 = 0;"
 ```
 
 *Output 2:*
