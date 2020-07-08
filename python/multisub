@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+import argparse
+import sys
+import re
+
+def parseArguments():
+    parser = argparse.ArgumentParser(description='multisub - Perform regex replacement operations based on grep-output-like input files')
+    parser.add_argument('input', help="File/input stream containing list of lines with pattern: <filepath><separator><lineno>[optional rest of line], typically obtained via grep (or structviz tool).", type=argparse.FileType("r"), nargs="?", default=sys.stdin)
+    parser.add_argument('-p,--patterns', dest="patterns", required=False, type=str, nargs="+", help=r"Search patterns (first, third, ...) or their substitution (second, fourth, ...). List must have even length.",default=[])
+    parser.add_argument('-d,--delete-patterns', dest="deletePatterns", required=False, type=str, nargs="+", help=r"Patterns to delete",default=[])
+    parser.add_argument('-w,--wrap-in-ifelse', dest="wrapInIf", default="", nargs="?", help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
+    parser.add_argument('--separator', type=str, default=r"\s:", nargs="?", help=r"Characters regarded as separator between filepath and lineno [default='\s:']")
+    parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
+    parser.add_argument('-i,--in-place', dest="inPlace", action="store_true", help="Apply replacement action directly to original file(s) [default=False]")
+    parser.add_argument('-v,--verbose', dest="verbose", action="store_true", help="Verbose output")
+    parser.add_argument('-c,--show-only-changes', dest="noOutput", action="store_true", help="Show only changes do not generate any output (to stdout or orginal file)")
+    parser.set_defaults(ignoreCase=True,verbose=False,inPlace=False,noOutput=False)
+    return parser.parse_args()
+
+args = parseArguments()
+# parsing
+flag = re.IGNORECASE if args.ignoreCase else 0
+locatorPattern = re.compile(r"([^{0}]+)[{0}]+([0-9]+)".format(args.separator), flag)
+if not len(args.patterns) and not len(args.deletePatterns):
+   print("ERROR: Please specify either replace pattersn ('-p') or delete patterns ('-d') . ABORT".format(filepath,lineno),file=sys.stderr)
+   sys.exit()
+if len(args.patterns) % 2 > 0:
+   print("ERROR: list of search and replace patterns is not even. ABORT".format(filepath,lineno),file=sys.stderr)
+   sys.exit()
+for pattern in args.deletePatterns:
+   args.patterns.append(pattern)
+   args.patterns.append("")
+
+# convert input into convenient format
+# we want to open files only once.
+locations = {}
+for line in args.input.readlines():
+    m = locatorPattern.match(line)
+    if m:
+       filepath = m.group(1)
+       lineno   = int(m.group(2))
+       if args.verbose:
+          print("INFO: found filepath '{0}' and line number '{1}'.".format(filepath,lineno),file=sys.stderr)
+       if not filepath in locations:
+           locations[filepath] = set()
+       locations[filepath].add(lineno)
+    else:
+       print("WARNING: input line '{0}' is not in format '<filepath><separator><lineno>[optional rest of line]'. Is ignored.".format(line),file=sys.stderr)
+
+# no go through the lines and replace all search patterns by the replacement pattern in the specified lines
+for filepath,linenos in locations.items():
+    outputlines = []
+    with open(filepath,"r") as target:
+        for lineno, line in enumerate(target.readlines()):
+            if lineno+1 in linenos:
+                modLine = line.strip("\n")
+                for i in range(0,int(len(args.patterns)/2)):
+                    prevModLine = modLine
+                    modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
+                                     repl    = r"{0}".format(args.patterns[2*i+1]),\
+                                     string  = modLine,\
+                                     count   = 0, flags = re.IGNORECASE) # 0 - replace all matches
+                    if (args.verbose or args.noOutput) and prevModLine != modLine:
+                        print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,prevModLine,modLine),file=sys.stderr)
+
+                newlines = []
+                if len(args.wrapInIf):
+                    newlines.append("#if{}\n".format(args.wrapInIf))
+                if modLine != "":
+                    newlines += ["{0}\n".format(el) for el in modLine.split("\n")]
+                if len(args.wrapInIf):
+                    newlines.append("#else\n")
+                    newlines.append(line)
+                    newlines.append("#else\n")
+                    if args.verbose or args.noOutput:
+                         print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,prevModLine,"".join(newlines)),file=sys.stderr)
+                outputlines += newlines 
+            else:
+                outputlines.append(line)
+    if not args.noOutput:
+        if args.inPlace:
+            if args.verbose:
+                print("INFO: directly apply changes to original file '{0}'".format(filepath),file=sys.stderr)
+            with open(filepath,"w") as target:
+                target.writelines(outputlines)
+        else: 
+            print("".join(outputlines))
