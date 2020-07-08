@@ -59,7 +59,7 @@ for filepath,linenos in locations.items():
                     modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
                                      repl    = r"{0}".format(args.patterns[2*i+1]),\
                                      string  = modLine,\
-                                     count   = 0, flags = re.IGNORECASE) # 0 - replace all matches
+                                     count   = 0, flags = flag) # 0 - replace all matches
                     if (args.verbose or args.noOutput) and prevModLine != modLine:
                         print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,prevModLine,modLine),file=sys.stderr)
 
