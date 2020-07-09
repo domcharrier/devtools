@@ -6,11 +6,13 @@ import re
 def parseArguments():
     parser = argparse.ArgumentParser(description='multisub - Perform regex replacement operations based on grep-output-like input files')
     parser.add_argument('input', help="File/input stream containing list of lines with pattern: <filepath><separator><lineno>[optional rest of line], typically obtained via grep (or structviz tool).", type=argparse.FileType("r"), nargs="?", default=sys.stdin)
-    parser.add_argument('-p,--patterns', dest="patterns", required=False, type=str, nargs="+", help=r"Search patterns (first, third, ...) or their substitution (second, fourth, ...). List must have even length.",default=[])
+    parser.add_argument('-p,--patterns', dest="patterns", required=False, type=str, nargs="+", help=r"Search patterns (first, third, ...) and their replacement (second, fourth, ...). List must have even length.",default=[])
     parser.add_argument('-d,--delete-patterns', dest="deletePatterns", required=False, type=str, nargs="+", help=r"Patterns to delete",default=[])
     parser.add_argument('-w,--wrap-in-ifelse', dest="wrapInIf", default="", nargs="?", help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
     parser.add_argument('--separator', type=str, default=r"\s:", nargs="?", help=r"Characters regarded as separator between filepath and lineno [default='\s:']")
     parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
+    parser.add_argument('-l,--lower', dest="lower", action="store_true", help="Convert ALL replacements to lower case")
+    parser.add_argument('-u,--upper', dest="upper", action="store_true", help="Convert ALL replacements to upper case")
     parser.add_argument('-i,--in-place', dest="inPlace", action="store_true", help="Apply replacement action directly to original file(s) [default=False]")
     parser.add_argument('-v,--verbose', dest="verbose", action="store_true", help="Verbose output")
     parser.add_argument('-c,--show-only-changes', dest="noOutput", action="store_true", help="Show only changes do not generate any output (to stdout or orginal file)")
@@ -18,11 +20,13 @@ def parseArguments():
     return parser.parse_args()
 
 args = parseArguments()
+if args.lower and args.upper:
+    print("ERROR: please specify only one of upper ('-u') and lower ('-l'). ABORT".format(filepath,lineno),file=sys.stderr)
 # parsing
 flag = re.IGNORECASE if args.ignoreCase else 0
 locatorPattern = re.compile(r"([^{0}]+)[{0}]+([0-9]+)".format(args.separator), flag)
 if not len(args.patterns) and not len(args.deletePatterns):
-   print("ERROR: Please specify either replace pattersn ('-p') or delete patterns ('-d') . ABORT".format(filepath,lineno),file=sys.stderr)
+   print("ERROR: please specify either replace patterns ('-p') or delete patterns ('-d') . ABORT".format(filepath,lineno),file=sys.stderr)
    sys.exit()
 if len(args.patterns) % 2 > 0:
    print("ERROR: list of search and replace patterns is not even. ABORT".format(filepath,lineno),file=sys.stderr)
@@ -56,10 +60,28 @@ for filepath,linenos in locations.items():
                 modLine = line.strip("\n")
                 for i in range(0,int(len(args.patterns)/2)):
                     prevModLine = modLine
-                    modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
-                                     repl    = r"{0}".format(args.patterns[2*i+1]),\
-                                     string  = modLine,\
-                                     count   = 0, flags = flag) # 0 - replace all matches
+                    if args.lower or args.upper:
+                        def replaceAndChangeCase(m):
+                            """
+                            Callback is only applied to matching string
+                            """
+                            result = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
+                                            repl    = r"{0}".format(args.patterns[2*i+1]),\
+                                            string  = m.group(0),\
+                                            count   = 0, flags = flag) # 0 - replace all matches
+                            if args.lower:
+                                return result.lower()
+                            elif args.upper:
+                                return result.upper()
+                        modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
+                                         repl    = replaceAndChangeCase,\
+                                         string  = modLine,\
+                                         count   = 0, flags = flag) # 0 - replace all matches
+                    else:
+                        modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
+                                         repl    = r"{0}".format(args.patterns[2*i+1]),\
+                                         string  = modLine,\
+                                         count   = 0, flags = flag) # 0 - replace all matches
                     if (args.verbose or args.noOutput) and prevModLine != modLine:
                         print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,prevModLine,modLine),file=sys.stderr)
 

@@ -136,11 +136,12 @@ the `#if<expression>` branch.
 *Usage:*
 
 ```shell
-usage: multisub [-h] -p,--patterns PATTERNS [PATTERNS ...]
-                 [-w,--wrap-in-ifelse [WRAPINIF]] [--separator [SEPARATOR]]
-                 [-s,--case-sensitive] [-i,--in-place] [-v,--verbose]
-                 [-c,--show-only-changes]
-                 [input]
+usage: multisub [-h] [-p,--patterns PATTERNS [PATTERNS ...]]
+                [-d,--delete-patterns DELETEPATTERNS [DELETEPATTERNS ...]]
+                [-w,--wrap-in-ifelse [WRAPINIF]] [--separator [SEPARATOR]]
+                [-s,--case-sensitive] [-l,--lower] [-u,--upper]
+                [-i,--in-place] [-v,--verbose] [-c,--show-only-changes]
+                [input]
 
 multisub - Perform regex replacement operations based on grep-output-like
 input files
@@ -154,9 +155,11 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -p,--patterns PATTERNS [PATTERNS ...]
-                        Search patterns (first, third, ...) or their
-                        substitution (second, fourth, ...). List must have
-                        even length.
+                        Search patterns (first, third, ...) and their
+                        replacement (second, fourth, ...). List must have even
+                        length.
+  -d,--delete-patterns DELETEPATTERNS [DELETEPATTERNS ...]
+                        Patterns to delete
   -w,--wrap-in-ifelse [WRAPINIF]
                         Wrap modified and original line in '#if<expression>
                         <modified> #else <original> #endif' construct
@@ -165,12 +168,15 @@ optional arguments:
                         lineno [default='\s:']
   -s,--case-sensitive   Do not ignore case when search for patterns
                         [default=False]
+  -l,--lower            Convert ALL replacements to lower case
+  -u,--upper            Convert ALL replacements to upper case
   -i,--in-place         Apply replacement action directly to original file(s)
                         [default=False]
   -v,--verbose          Verbose output
   -c,--show-only-changes
                         Show only changes do not generate any output (to
-                        stdout or orginal file
+                        stdout or orginal file)
+
 ```
 
 These options are displayed when calling `structviz` with `--help` or `-h`.
