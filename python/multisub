@@ -93,7 +93,7 @@ for filepath,linenos in locations.items():
                 if len(args.wrapInIf):
                     newlines.append("#else\n")
                     newlines.append(line)
-                    newlines.append("#else\n")
+                    newlines.append("#endif\n")
                     if args.verbose or args.noOutput:
                          print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,prevModLine,"".join(newlines)),file=sys.stderr)
                 outputlines += newlines 
