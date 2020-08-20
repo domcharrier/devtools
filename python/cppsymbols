@@ -1,0 +1,36 @@
+#!/usr/bin/env python
+import subprocess
+import argparse
+import sys
+import re
+
+def parseArguments():
+    parser = argparse.ArgumentParser(description="cppsymbols - List C preprocessor symbols in a file (requires `unifdef` tool).")
+    parser.add_argument("input", help="Input file.", type=argparse.FileType("r"), nargs="?", default=sys.stdin)
+    parser.add_argument("-g,--generate-checks", dest="generateChecks", action="store_true", help="Generate C proprecessor code that checks if the discovered variables are defined.")
+    parser.add_argument('-n,--stringify-name', type=str, dest="stringifyName", default="STR", nargs="?",  help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
+    parser.set_defaults(generateChecks=False)
+    return parser.parse_args()
+
+args = parseArguments()
+
+command = "unifdef -s {file} | sort -u".format(file=args.input.name)
+symbols = subprocess.check_output(command,shell=True).decode("ascii").rstrip().split("\n")
+
+if args.generateChecks:
+    PREAMBLE="""#define X{symbol}(x) {symbol}(x)
+#define {symbol}(x) #x
+""".format(symbol=args.stringifyName)
+    TEMPLATE="""#ifdef {symbol}
+#pragma message (__FILE__  ": {symbol}         = " X{macro}({symbol}))
+#endif"""
+
+    result = PREAMBLE
+    for symbol in symbols:
+        check = TEMPLATE.format(macro=args.stringifyName,symbol=symbol)
+        result += check + "\n"
+        
+    print(result)
+else:
+    for symbol in symbols:
+        print(symbol)
