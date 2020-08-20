@@ -7,18 +7,26 @@ import re
 def parseArguments():
     parser = argparse.ArgumentParser(description="cppsymbols - List C preprocessor symbols in a file (requires `unifdef` tool).")
     parser.add_argument("input", help="Input file.", type=argparse.FileType("r"), nargs="?", default=sys.stdin)
-    parser.add_argument("-g,--generate-checks", dest="generateChecks", action="store_true", help="Generate C proprecessor code that checks if the discovered variables are defined.")
-    parser.add_argument('-n,--stringify-name', type=str, dest="stringifyName", default="STR", nargs="?",  help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
-    parser.set_defaults(generateChecks=False)
+    parser.add_argument("-l,--symbol-list", dest="symbolList", action="store_true", help="Input is a list of symbols and not a file.")
+    parser.add_argument("-g,--generate-checks", dest="generateChecks", action="store_true", help="Generate C preprocessor code that checks if the discovered variables are defined.")
+    parser.add_argument("-p,--print-preamble", dest="printPreamble", action="store_true", help="Define stringify macro before generating checks.")
+    parser.add_argument('-s,--stringify-name', type=str, dest="stringifyName", default="STR", nargs="?",  help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
+    parser.set_defaults(generateChecks=False,printPreamble=False,symbolList=False)
     return parser.parse_args()
 
 args = parseArguments()
 
-command = "unifdef -s {file} | sort -u".format(file=args.input.name)
-symbols = subprocess.check_output(command,shell=True).decode("ascii").rstrip().split("\n")
+command = "unifdef -s -t {file} | sort -u".format(file=args.input.name)
+
+if args.symbolList:
+    symbols = args.input.readlines()
+else:
+    symbols = subprocess.check_output(command,shell=True).decode("ascii").rstrip().split("\n")
 
 if args.generateChecks:
-    PREAMBLE="""#define X{symbol}(x) {symbol}(x)
+    PREAMBLE = ""
+    if args.printPreamble:
+        PREAMBLE="""#define X{symbol}(x) {symbol}(x)
 #define {symbol}(x) #x
 """.format(symbol=args.stringifyName)
     TEMPLATE="""#ifdef {symbol}
@@ -27,9 +35,8 @@ if args.generateChecks:
 
     result = PREAMBLE
     for symbol in symbols:
-        check = TEMPLATE.format(macro=args.stringifyName,symbol=symbol)
-        result += check + "\n"
-        
+        check = TEMPLATE.format(macro=args.stringifyName,symbol=symbol.strip())
+        result += "\n"+check
     print(result)
 else:
     for symbol in symbols:
