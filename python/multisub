@@ -83,7 +83,7 @@ for filepath,linenos in locations.items():
                                          string  = modLine,\
                                          count   = 0, flags = flag) # 0 - replace all matches
                     if (args.verbose or args.noOutput) and prevModLine != modLine:
-                        print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno,prevModLine,modLine),file=sys.stderr)
+                        print("INFO: {0}:{1}: replace '{2}' -> '{3}'".format(filepath,lineno+1,prevModLine,modLine),file=sys.stderr)
 
                 newlines = []
                 if len(args.wrapInIf):
