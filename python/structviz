@@ -7,24 +7,23 @@ class Node():
      def __init__(self,lineno=-1,line="ROOT",parent=None):
          self.lineno = lineno
          self.line = line
+         self.closingLine = ""
          self.parent = parent
          self.children = []
      def addChild(self,lineno,line):
-         global current
-         newChild = Node(lineno=lineno,line=line,parent=current)
+         newChild = Node(lineno=lineno,line=line,parent=self)
          self.children.append(newChild)
      def descend(self,lineno,line):
-         global current
          self.addChild(lineno=lineno,line=line)
-         current = self.children[-1]
-     def ascend(self):
-         global current
-         current = current.parent 
+         return self.children[-1]
+     def ascend(self,lineno):
+         self.closingLine = lineno
+         return self.parent 
      def traverse(self,indent=""):
          global indentStr
          global FORMAT
          if self.lineno>0:
-             print(FORMAT.format(indent,self.line,filename,str(self.lineno)))
+             print(FORMAT.format(indent,self.line,filename,str(self.lineno),str(self.closingLine)))
              indent += indentStr
          for child in self.children:
              child.traverse(indent)
@@ -39,6 +38,7 @@ def parseArguments():
     parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
     parser.add_argument('-n,--show-line-numbers', dest="showLineNumbers", action="store_true", help="Show number of matched lines [default=False]")
     parser.add_argument('-H,--show-file', dest="showFile", action="store_true", help="Show fie name [default=False]")
+    parser.add_argument('-a,--show-closing-line-number', dest="showClosingLineNumber", action="store_true", help="Print the number of the line where a structure is closed [default=False]")
     parser.set_defaults(ignoreCase=True,showLineNumbers=False,showFile=False)
     return parser.parse_args()
 
@@ -55,21 +55,28 @@ if checkForIntermediates:
 
 current = Node()
 maxLineo = -1
+depth = 0
+maxDepth = 0 
+maxLineLength = 0
 for index,line in enumerate(args.input.readlines()):
     lineno=index+1
     openingMatches = False
     for result in re.findall(searchPatterns, line): # opening pattern 
+         maxLineLength = max(maxLineLength,len(line))
          if type(result) is str:
              matching = result
          else:
              matching = result[0]
          noClosingOpening = True
          if closing.match(matching): # 'match from begin
-             current.ascend()
+             current = current.ascend(lineno)
              noClosingOpening = False
+             depth -= 1
          if opening.match(matching):
-             current.descend(lineno,line.strip())
+             current = current.descend(lineno,line.strip())
              noClosingOpening = False
+             depth += 1
+             maxDepth = max(maxDepth,lineno)
          if noClosingOpening and checkForIntermediates and intermediate.match(matching): # opening pattern 
              current.addChild(lineno,line.strip())
          maxLineo = max(maxLineo,lineno)
@@ -78,10 +85,13 @@ for index,line in enumerate(args.input.readlines()):
 indentStr=args.indentStr
 filename = args.input.name
 linenoChars = str(len(str(maxLineo)))
-FORMAT="{0}{1}"
+
+FORMAT="{0}{1:<"+str(maxLineLength)+"}"
 if args.showLineNumbers:
     FORMAT="{3:>"+linenoChars+"}:"+FORMAT 
 if args.showFile:
    FORMAT="{2} " + FORMAT
+if args.showClosingLineNumber:
+    FORMAT+= " -- closed: {4}"
 
 current.traverse()

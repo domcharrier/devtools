@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#requires hipify perl
+#$1 - search dir
+candidates=$(grep -i -r "\<\(cuda\|cublas\|cusparse\|cusolver\|cufft\|curand\|cusp\|cub\)\w\+\>" $1 -l)
+ignorelist="hip_runtime\|hip_runtime_api"
+symbols=$(for f in $candidates; do hipify-perl $f | grep "\<hip\w\+\>" -o | grep -v "$ignorelist" ; done | sort -u)
+
+printf "#if defined(__HIP_PLATFORM_HCC__)\n"
+printf "#  include <hip/hip_runtime.h>\n"
+printf "#  include <hip/hip_runtime_api.h>\n"
+for s in ${symbols}; do
+  sc=$s
+  sc=${sc/hipblas/cublas}
+  sc=${sc/hipsparse/cusparse}
+  sc=${sc/hipfft/cufft}
+  sc=${sc/hiprand/curand}
+  sc=${sc/hipblas/cublas}
+  sc=${sc/hipcub/cub}
+  sc=${sc/hip/cuda}
+  printf "#  define ${sc} ${s}\n"
+done
+printf "#endif\n"
