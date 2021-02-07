@@ -203,7 +203,7 @@ end subroutine
 *Input 1:*
 
 ```shell
-grep -H -n "^" example.f90 -H -n
+grep -H -n "^" example.f90
 ```
 
 *Output 1:*
