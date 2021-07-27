@@ -11,6 +11,8 @@ def parseArguments():
     parser.add_argument('-e,--erase-lines', dest="eraseLinePatterns", required=False, type=str, nargs="+", help=r"Erase whole lines that contain one of the specified patterns.",default=[])
     parser.add_argument('-w,--wrap-in-ifelse', dest="wrapInIf", default="", nargs="?", help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
     parser.add_argument('--separator', type=str, default=r":-", nargs="?", help=r"Characters regarded as separator between filepath and lineno [default=':-']")
+    parser.add_argument('--min', type=int, default=-1, required=False, help=r"Minimum line number (inclusive) to consider [default=-1]")
+    parser.add_argument('--max', type=int, default=sys.maxsize, required=False, help=r"Maximum line number (inclusive) to consider [default=sys.maxsize]")
     parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
     parser.add_argument('-l,--lower', dest="lower", action="store_true", help="Convert ALL replacements to lower case")
     parser.add_argument('-u,--upper', dest="upper", action="store_true", help="Convert ALL replacements to upper case")
@@ -46,12 +48,13 @@ for line in args.input.readlines():
     if m:
        filepath = m.group("filepath")
        lineno   = int(m.group("lineno"))
-       text     = m.group("text")
-       if args.verbose:
-          print("INFO: found filepath '{0}' and line number '{1}'.".format(filepath,lineno),file=sys.stderr)
-       if not filepath in locations:
-           locations[filepath] = []
-       locations[filepath].append( (lineno,text.rstrip("\n")) )
+       if lineno >= args.min and lineno <= args.max:
+           text     = m.group("text")
+           if args.verbose:
+              print("INFO: found filepath '{0}' and line number '{1}'.".format(filepath,lineno),file=sys.stderr)
+           if not filepath in locations:
+               locations[filepath] = []
+           locations[filepath].append( (lineno,text.rstrip("\n")) )
     else:
        print("WARNING: input line '{0}' is not in format '<filepath><separator><lineno>[optional rest of line]'. Is ignored.".format(line),file=sys.stderr)
 
