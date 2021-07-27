@@ -20,10 +20,14 @@ def parseArguments():
     parser.add_argument('-a,--write-input-lines', dest="writeInputLines", required=False, action="store_true", help="Write lines as specified in the input file to the destination file(s). Has precedence over other modifications.",default=[])
     parser.add_argument('-v,--verbose', dest="verbose", action="store_true", help="Verbose output")
     parser.add_argument('-c,--show-only-changes', dest="noOutput", action="store_true", help="Show only changes do not generate any output (to stdout or orginal file)")
-    parser.set_defaults(ignoreCase=True,verbose=False,inplace=False,noOutput=False,writeInputLines=False)
+    parser.add_argument('--nop',dest="noOp", action="store_true", help="Do nothing at all.")
+    parser.set_defaults(ignoreCase=True,verbose=False,inplace=False,noOutput=False,writeInputLines=False,noOp=False)
     return parser.parse_args()
 
 args = parseArguments()
+if args.noOp:
+    sys.exit()
+
 if args.lower and args.upper:
     print("ERROR: please specify only one of upper ('-u') and lower ('-l'). ABORT".format(filepath,lineno),file=sys.stderr)
 # parsing
