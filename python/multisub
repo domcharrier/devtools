@@ -32,7 +32,6 @@ if args.lower and args.upper:
     print("ERROR: please specify only one of upper ('-u') and lower ('-l'). ABORT".format(filepath,lineno),file=sys.stderr)
 # parsing
 flag = re.IGNORECASE if args.ignoreCase else 0
-locatorPattern = re.compile(r"(?P<filepath>.+)[\s{0}]+(?P<lineno>[0-9]+)[{0}](?P<text>.+$)".format(args.separator), flag)
 if not args.writeInputLines and not len(args.patterns) and not len(args.deletePatterns) and not len(args.eraseLinePatterns):
    print("ERROR: please specify either replace patterns ('-p'), delete patterns ('-d'), erase line patterns ('-e') or the '-a' switch. ABORT".format(filepath,lineno),file=sys.stderr)
    sys.exit(2)
@@ -46,21 +45,22 @@ for pattern in args.deletePatterns:
 # convert input into convenient format
 # we want to open files only once.
 locations = {}
-
+       
+splitPattern = re.compile(r"([{0}][ \t]*[0-9]+[ \t]*[{0}])".format(args.separator), flag)
 for line in args.input.readlines():
-    m = locatorPattern.match(line)
-    if m:
-       filepath = m.group("filepath")
-       lineno   = int(m.group("lineno"))
+    parts = splitPattern.split(line, 1)
+    if len(parts)==3:
+       filepath = parts[0].strip()
+       lineno   = int(parts[1].strip(args.separator+" \t"))
        if lineno >= args.min and lineno <= args.max:
-           text     = m.group("text")
+           text     = parts[2]
            if args.verbose:
               print("INFO: found filepath '{0}' and line number '{1}'.".format(filepath,lineno),file=sys.stderr)
            if not filepath in locations:
                locations[filepath] = []
            locations[filepath].append( (lineno,text.rstrip("\n")) )
     else:
-       print("WARNING: input line '{0}' is not in format '<filepath><separator><lineno>[optional rest of line]'. Is ignored.".format(line),file=sys.stderr)
+       print("WARNING: input line '{0}' is not in format '<filepath><separator><lineno><separator>[optional rest of line]'. Is ignored.".format(line),file=sys.stderr)
 
 # no go through the lines and replace all search patterns by the replacement pattern in the specified lines
 for filepath,entries in locations.items():
