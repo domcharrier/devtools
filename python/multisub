@@ -29,14 +29,14 @@ if args.noOp:
     sys.exit()
 
 if args.lower and args.upper:
-    print("ERROR: please specify only one of upper ('-u') and lower ('-l'). ABORT".format(filepath,lineno),file=sys.stderr)
+    print("ERROR: please specify only one of upper ('-u') and lower ('-l'). ABORT",file=sys.stderr)
 # parsing
 flag = re.IGNORECASE if args.ignoreCase else 0
 if not args.writeInputLines and not len(args.patterns) and not len(args.deletePatterns) and not len(args.eraseLinePatterns):
-   print("ERROR: please specify either replace patterns ('-p'), delete patterns ('-d'), erase line patterns ('-e') or the '-a' switch. ABORT".format(filepath,lineno),file=sys.stderr)
+   print("ERROR: please specify either replace patterns ('-p'), delete patterns ('-d'), erase line patterns ('-e') or the '-a' switch. ABORT",file=sys.stderr)
    sys.exit(2)
 if len(args.patterns) % 2 > 0:
-   print("ERROR: list of search and replace patterns is not even. ABORT".format(filepath,lineno),file=sys.stderr)
+   print("ERROR: list of search and replace patterns is not even. ABORT",file=sys.stderr)
    sys.exit(2)
 for pattern in args.deletePatterns:
    args.patterns.append(pattern)
