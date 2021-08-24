@@ -110,31 +110,25 @@ for filepath,entries in locations.items():
                                                 count   = 0, flags = flag) # 0 - replace all matches
                                 # camel lower
                                 if args.camelCase:
-                                    def convertToCamelCase__(m):
-                                        result = m.group("prefix") + m.group("suffix")[0].upper()
-                                        if len(m.group("suffix")) > 1:
-                                            result += m.group("suffix")[1:].lower()
-                                        return result
-                                    result = re.sub(pattern = r"(?P<prefix>[A-Za-z0-9]+)_(?P<suffix>[A-Za-z0-9]+)",\
-                                                    repl    = convertToCamelCase__,\
-                                                    string  = result,\
-                                                    count   = 0) # replace al
+                                    parts  = result.split("_")
+                                    result = parts[0].lower()
+                                    for part in parts[1:]:
+                                        result += part[0].upper() + part[1:].lower()
+                                    return result
                                 elif args.underscores:
-                                    def convertToUnderscoreCase__(m):
-                                        secondVariant = m.group("prefix")[0].isupper()
-                                        result = m.group("prefix") + "_" + m.group("suffix")[:-1]
-                                        if not secondVariant and len(m.group("suffix")) > 1:
-                                            result += "_"
-                                        result += m.group("suffix")[-1]
-                                        return result
-                                    result = re.sub(pattern = r"(?P<prefix>[a-z][a-z0-9]*)(?P<suffix>[A-Z]+)",\
-                                                    repl    = convertToUnderscoreCase__,\
-                                                    string  = result,\
-                                                    count   = 0) # replace all
-                                    result = re.sub(pattern = r"(?P<prefix>[A-Z][A-Z0-9]+)(?P<suffix>[A-Z][a-z0-9]+)",\
-                                                    repl    = convertToUnderscoreCase__,\
-                                                    string  = result,\
-                                                    count   = 0) # replace all
+                                    parts1 = re.split(r"([A-Z][a-z0-9]+|[A-Z][A-Z]+)",result)
+                                    parts  = [p for p in parts1 if len(p)]
+                                    result = ""
+                                    for j,s in enumerate(parts):
+                                        if s.isupper():
+                                            if j != len(parts)-1:
+                                                result += s[:-1] + "_" + s[-1]
+                                            else:
+                                                result += s
+                                        else:
+                                            result += s
+                                            if j != len(parts)-1:
+                                                result += "_"
                                 # upper/lower
                                 if args.lower:
                                     return result.lower()
