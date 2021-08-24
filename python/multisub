@@ -7,21 +7,28 @@ def parseArguments():
     parser = argparse.ArgumentParser(description='multisub - Perform regex replacement operations based on grep-output-like input files')
     parser.add_argument('input', help="File/input stream containing list of lines with pattern: <filepath><separator><lineno>[optional rest of line], typically obtained via grep (or structviz tool).", type=argparse.FileType("r"), nargs="?", default=sys.stdin)
     parser.add_argument('-p,--patterns', dest="patterns", required=False, type=str, nargs="+", help=r"Search patterns (first, third, ...) and their replacement (second, fourth, ...). List must have even length.",default=[])
+    parser.add_argument('-s,--search', dest="searchPatterns", required=False, type=str, nargs="+", help=r"Specify only search patterns.",default=[])
     parser.add_argument('-d,--delete-patterns', dest="deletePatterns", required=False, type=str, nargs="+", help=r"Patterns to delete",default=[])
     parser.add_argument('-e,--erase-lines', dest="eraseLinePatterns", required=False, type=str, nargs="+", help=r"Erase whole lines that contain one of the specified patterns.",default=[])
-    parser.add_argument('-w,--wrap-in-ifelse', dest="wrapInIf", default="", nargs="?", help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
-    parser.add_argument('--separator', type=str, default=r":-", nargs="?", help=r"Characters regarded as separator between filepath and lineno [default=':-']")
+    parser.add_argument('-I,--inplace', dest="inplace", action="store_true", help="Apply replacement action directly to original file(s) [default=False]")
+    parser.add_argument('-a,--write-input-lines', dest="writeInputLines", required=False, action="store_true", help="Write lines as specified in the input file to the destination file(s). Has precedence over other modifications.",default=[])
     parser.add_argument('--min', type=int, default=-1, required=False, help=r"Minimum line number (inclusive) to consider [default=-1]")
     parser.add_argument('--max', type=int, default=sys.maxsize, required=False, help=r"Maximum line number (inclusive) to consider [default=sys.maxsize]")
-    parser.add_argument('-s,--case-sensitive', dest="ignoreCase", action="store_false", help="Do not ignore case when search for patterns [default=False]")
-    parser.add_argument('-l,--lower', dest="lower", action="store_true", help="Convert ALL replacements to lower case")
-    parser.add_argument('-u,--upper', dest="upper", action="store_true", help="Convert ALL replacements to upper case")
-    parser.add_argument('-i,--in-place', dest="inplace", action="store_true", help="Apply replacement action directly to original file(s) [default=False]")
-    parser.add_argument('-a,--write-input-lines', dest="writeInputLines", required=False, action="store_true", help="Write lines as specified in the input file to the destination file(s). Has precedence over other modifications.",default=[])
+    parser.add_argument('--separator', type=str, default=r":-", nargs="?", help=r"Characters regarded as separator between filepath and lineno [default=':-']")
     parser.add_argument('-v,--verbose', dest="verbose", action="store_true", help="Verbose output")
-    parser.add_argument('-c,--show-only-changes', dest="noOutput", action="store_true", help="Show only changes do not generate any output (to stdout or orginal file)")
+    parser.add_argument('-n,--show-only-changes', dest="noOutput", action="store_true", help="Dry run; show only changes do not generate any output (to stdout or orginal file)")
     parser.add_argument('--nop',dest="noOp", action="store_true", help="Do nothing at all.")
-    parser.set_defaults(ignoreCase=True,verbose=False,inplace=False,noOutput=False,writeInputLines=False,noOp=False)
+    group_postprocess = parser.add_argument_group("Post-process replacements/search results")
+    # post-procesing
+    group_postprocess.add_argument('-w,--wrap-in-ifelse', dest="wrapInIf", default="", nargs="?", help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
+    group_postprocess.add_argument('-i,--case-insensitive', dest="ignoreCase", action="store_true", help="Ignore case when searching for patterns [default=False]")
+    group_postprocess.add_argument('-l,--lower', dest="lower", action="store_true", help="Convert ALL replacements/search results to lower case")
+    group_postprocess.add_argument('-u,--upper', dest="upper", action="store_true", help="Convert ALL replacements/search results to upper case")
+    group_postprocess.add_argument('-C,--camel-case', dest="camelCase", action="store_true", help="Convert ALL replacements/search results to 'camel case'.")
+    group_postprocess.add_argument('-U,--underscores', dest="underscores", action="store_true", help="Convert ALL replacements/search results to 'underscore case'.")
+    # defaults
+    parser.set_defaults(ignoreCase=False,verbose=False,inplace=False,noOutput=False,writeInputLines=False,noOp=False,\
+            camelCase=False,underscores=False)
     return parser.parse_args()
 
 args = parseArguments()
@@ -30,10 +37,13 @@ if args.noOp:
 
 if args.lower and args.upper:
     print("ERROR: please specify only one of upper ('-u') and lower ('-l'). ABORT",file=sys.stderr)
+if args.camelCase and args.underscores:
+    print("ERROR: please specify only one of underscores ('-U') and camel case ('-C'). ABORT",file=sys.stderr)
 # parsing
 flag = re.IGNORECASE if args.ignoreCase else 0
-if not args.writeInputLines and not len(args.patterns) and not len(args.deletePatterns) and not len(args.eraseLinePatterns):
-   print("ERROR: please specify either replace patterns ('-p'), delete patterns ('-d'), erase line patterns ('-e') or the '-a' switch. ABORT",file=sys.stderr)
+if not args.writeInputLines and not len(args.patterns) and not len(args.deletePatterns) and\
+    not len(args.eraseLinePatterns) and not len(args.searchPatterns):
+   print("ERROR: please specify either search patterns ('-s'), replace patterns ('-p'), delete patterns ('-d'), erase line patterns ('-e') or the '-a' switch. ABORT",file=sys.stderr)
    sys.exit(2)
 if len(args.patterns) % 2 > 0:
    print("ERROR: list of search and replace patterns is not even. ABORT",file=sys.stderr)
@@ -41,6 +51,9 @@ if len(args.patterns) % 2 > 0:
 for pattern in args.deletePatterns:
    args.patterns.append(pattern)
    args.patterns.append("")
+for pattern in args.searchPatterns:
+   args.patterns.append("("+pattern+")")
+   args.patterns.append(r"\1")
 
 # convert input into convenient format
 # we want to open files only once.
@@ -88,21 +101,40 @@ for filepath,entries in locations.items():
                 if not eraseLine:
                     for i in range(0,int(len(args.patterns)/2)):
                         prevModLine = modLine
-                        if args.lower or args.upper:
-                            def replaceAndChangeCase(m):
-                                """
-                                Callback is only applied to matching string
-                                """
+                        if args.lower or args.upper or args.underscores or args.camelCase:
+                            def replaceAndChangeCase_(m):
+                                """:note: callback is only applied to matching string."""
                                 result = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
                                                 repl    = r"{0}".format(args.patterns[2*i+1]),\
                                                 string  = m.group(0),\
                                                 count   = 0, flags = flag) # 0 - replace all matches
+                                # camel lower
+                                if args.camelCase:
+                                    def convertToCamelCase__(m):
+                                        result = m.group("prefix") + m.group("suffix")[0].upper()
+                                        if len(m.group("suffix")) > 1:
+                                            result += m.group("suffix")[1:].lower()
+                                        return result
+                                    result = re.sub(pattern = r"(?P<prefix>[A-Za-z0-9]+)_(?P<suffix>[A-Za-z0-9]+)",\
+                                                    repl    = convertToCamelCase__,\
+                                                    string  = result,\
+                                                    count   = 0) # replace al
+                                elif args.underscores:
+                                    def convertToUnderscoreCase__(m):
+                                        return m.group("prefix").lower() + "_" + m.group("suffix").lower()
+                                    result = re.sub(pattern = r"(?P<prefix>[a-z][a-z0-9]+)(?P<suffix>[A-Z]+)",\
+                                                    repl    = convertToUnderscoreCase__,\
+                                                    string  = result,\
+                                                    count   = 0) # replace all
+                                # upper/lower
                                 if args.lower:
                                     return result.lower()
                                 elif args.upper:
                                     return result.upper()
+                                else:
+                                    return result
                             modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
-                                             repl    = replaceAndChangeCase,\
+                                             repl    = replaceAndChangeCase_,\
                                              string  = modLine,\
                                              count   = 0, flags = flag) # 0 - replace all matches
                         else:
