@@ -121,8 +121,17 @@ for filepath,entries in locations.items():
                                                     count   = 0) # replace al
                                 elif args.underscores:
                                     def convertToUnderscoreCase__(m):
-                                        return m.group("prefix").lower() + "_" + m.group("suffix").lower()
-                                    result = re.sub(pattern = r"(?P<prefix>[a-z][a-z0-9]+)(?P<suffix>[A-Z]+)",\
+                                        secondVariant = m.group("prefix")[0].isupper()
+                                        result = m.group("prefix") + "_" + m.group("suffix")[:-1]
+                                        if not secondVariant and len(m.group("suffix")) > 1:
+                                            result += "_"
+                                        result += m.group("suffix")[-1]
+                                        return result
+                                    result = re.sub(pattern = r"(?P<prefix>[a-z][a-z0-9]*)(?P<suffix>[A-Z]+)",\
+                                                    repl    = convertToUnderscoreCase__,\
+                                                    string  = result,\
+                                                    count   = 0) # replace all
+                                    result = re.sub(pattern = r"(?P<prefix>[A-Z][A-Z0-9]+)(?P<suffix>[A-Z][a-z0-9]+)",\
                                                     repl    = convertToUnderscoreCase__,\
                                                     string  = result,\
                                                     count   = 0) # replace all
