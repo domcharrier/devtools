@@ -108,13 +108,17 @@ for filepath,entries in locations.items():
                                                 repl    = r"{0}".format(args.patterns[2*i+1]),\
                                                 string  = m.group(0),\
                                                 count   = 0, flags = flag) # 0 - replace all matches
-                                # camel lower
+                                # camel case / underscores
                                 if args.camelCase:
-                                    parts  = result.split("_")
-                                    result = parts[0].lower()
-                                    for part in parts[1:]:
-                                        result += part[0].upper() + part[1:].lower()
-                                    return result
+                                    parts  = [p for p in result.split("_") if len(p)]
+                                    result = ""
+                                    for j,part in enumerate(parts):
+                                        if j == 0:
+                                            result += parts[0].lower()
+                                        else:
+                                            result += part[0].upper()
+                                            if len(part[1:]):
+                                                result += part[1:].lower()
                                 elif args.underscores:
                                     parts1 = re.split(r"([A-Z][a-z0-9]+|[A-Z][A-Z]+)",result)
                                     parts  = [p for p in parts1 if len(p)]
@@ -129,7 +133,7 @@ for filepath,entries in locations.items():
                                             result += s
                                             if j != len(parts)-1:
                                                 result += "_"
-                                # upper/lower
+                                # upper / lower
                                 if args.lower:
                                     return result.lower()
                                 elif args.upper:
