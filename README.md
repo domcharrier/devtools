@@ -8,7 +8,7 @@ Download the repository:
 
 ```shell
 cd ~
-git clone https://github.com/txomin13 .devtools
+https://github.com/domcharrier/devtools.git .devtools
 ```
 
 Then, put the following into your `.bashrc` (or equivalent file):
