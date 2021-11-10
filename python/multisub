@@ -97,12 +97,14 @@ def print_erase_action(filepath,lineno,original):
     print_colored(msg,termcolors.OKCYAN,end="")
     msg = "{0}:".format(lineno+1)
     print_colored(msg,termcolors.OKBLUE)
-    msg = "-{0}".format(original.rstrip("\n"))
+    parts = original.rstrip("\n").split("\n")
+    msg = "\n".join(["-{}".format(part) for part in parts]) 
     print_colored(msg,termcolors.FAIL)
 
 def print_replace_action(filepath,lineno,original,replacement):
     print_erase_action(filepath,lineno,original)
-    msg = "+{0}".format(replacement.rstrip("\n"))
+    parts = replacement.rstrip("\n").split("\n")
+    msg = "\n".join(["+{}".format(part) for part in parts]) 
     print_colored(msg,termcolors.OKGREEN)
 
 # no go through the lines and replace all search patterns by the replacement pattern in the specified lines
