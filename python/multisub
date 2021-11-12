@@ -2,6 +2,7 @@
 import argparse
 import os,sys
 import re
+import sre_constants
 
 def parseArguments():
     parser = argparse.ArgumentParser(description='multisub - Perform regex replacement operations based on grep-output-like input files')
@@ -108,104 +109,110 @@ def print_replace_action(filepath,lineno,original,replacement):
     print_colored(msg,termcolors.OKGREEN)
 
 # no go through the lines and replace all search patterns by the replacement pattern in the specified lines
-for filepath,entries in locations.items():
-    outputlines = []
-    with open(filepath,"r") as target:
-        for lineno, line in enumerate(target.readlines()):
-            modLine = line.rstrip("\n")
-            entry = next((entry for entry in entries if lineno+1 == entry[0]),None)
-            if entry:
-                # apply
-                if args.writeInputLines:
-                    if (args.verbose or args.noOutput) and entry[1] != modLine:
-                       print_replace_action(filepath,lineno,modLine,entry[1])
-                    modLine = entry[1]
-                # erase lines
-                eraseLine = False
-                for pattern in args.eraseLinePatterns:
-                    pEraseLine = re.compile(r"{0}".format(pattern))
-                    if pEraseLine.search(line):
-                        if (args.verbose or args.noOutput):
-                            print_erase_action(filepath,lineno,modLine)
-                        eraseLine = True
-                        break
-                # change line content if line must not be deleted
-                if not eraseLine:
-                    for i in range(0,int(len(args.patterns)/2)):
-                        prevModLine = modLine
-                        if args.lower or args.upper or args.underscores or args.camelCase:
-                            def replaceAndChangeCase_(m):
-                                """:note: callback is only applied to matching string."""
-                                result = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
-                                                repl    = r"{0}".format(args.patterns[2*i+1]),\
-                                                string  = m.group(0),\
-                                                count   = 0, flags = flag) # 0 - replace all matches
-                                # camel case / underscores
-                                if args.camelCase:
-                                    parts  = [p for p in result.split("_") if len(p)]
-                                    result = ""
-                                    for j,part in enumerate(parts):
-                                        if j == 0:
-                                            result += parts[0].lower()
-                                        else:
-                                            result += part[0].upper()
-                                            if len(part[1:]):
-                                                result += part[1:].lower()
-                                elif args.underscores:
-                                    parts1 = re.split(r"([A-Z][a-z0-9]+|[A-Z][A-Z]+)",result)
-                                    parts  = [p for p in parts1 if len(p)]
-                                    result = ""
-                                    for j,s in enumerate(parts):
-                                        if s.isupper():
-                                            if j != len(parts)-1:
-                                                result += s[:-1] + "_" + s[-1]
+try:
+    for filepath,entries in locations.items():
+        outputlines = []
+        with open(filepath,"r") as target:
+            for lineno, line in enumerate(target.readlines()):
+                modLine = line.rstrip("\n")
+                entry = next((entry for entry in entries if lineno+1 == entry[0]),None)
+                if entry:
+                    # apply
+                    if args.writeInputLines:
+                        if (args.verbose or args.noOutput) and entry[1] != modLine:
+                           print_replace_action(filepath,lineno,modLine,entry[1])
+                        modLine = entry[1]
+                    # erase lines
+                    eraseLine = False
+                    for pattern in args.eraseLinePatterns:
+                        pEraseLine = re.compile(r"{0}".format(pattern))
+                        if pEraseLine.search(line):
+                            if (args.verbose or args.noOutput):
+                                print_erase_action(filepath,lineno,modLine)
+                            eraseLine = True
+                            break
+                    # change line content if line must not be deleted
+                    if not eraseLine:
+                        for i in range(0,int(len(args.patterns)/2)):
+                            prevModLine = modLine
+                            if args.lower or args.upper or args.underscores or args.camelCase:
+                                def replaceAndChangeCase_(m):
+                                    """:note: callback is only applied to matching string."""
+                                    result = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
+                                                    repl    = r"{0}".format(args.patterns[2*i+1]),\
+                                                    string  = m.group(0),\
+                                                    count   = 0, flags = flag) # 0 - replace all matches
+                                    # camel case / underscores
+                                    if args.camelCase:
+                                        parts  = [p for p in result.split("_") if len(p)]
+                                        result = ""
+                                        for j,part in enumerate(parts):
+                                            if j == 0:
+                                                result += parts[0].lower()
+                                            else:
+                                                result += part[0].upper()
+                                                if len(part[1:]):
+                                                    result += part[1:].lower()
+                                    elif args.underscores:
+                                        parts1 = re.split(r"([A-Z][a-z0-9]+|[A-Z][A-Z]+)",result)
+                                        parts  = [p for p in parts1 if len(p)]
+                                        result = ""
+                                        for j,s in enumerate(parts):
+                                            if s.isupper():
+                                                if j != len(parts)-1:
+                                                    result += s[:-1] + "_" + s[-1]
+                                                else:
+                                                    result += s
                                             else:
                                                 result += s
-                                        else:
-                                            result += s
-                                            if j != len(parts)-1:
-                                                result += "_"
-                                # upper / lower
-                                if args.lower:
-                                    return result.lower()
-                                elif args.upper:
-                                    return result.upper()
-                                else:
-                                    return result
-                            modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
-                                             repl    = replaceAndChangeCase_,\
-                                             string  = modLine,\
-                                             count   = 0, flags = flag) # 0 - replace all matches
-                        else:
-                            modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
-                                             repl    = r"{0}".format(args.patterns[2*i+1]),\
-                                             string  = modLine,\
-                                             count   = 0, flags = flag) # 0 - replace all matches
-                        if (args.verbose or args.noOutput) and prevModLine != modLine:
-                            print_replace_action(filepath,lineno,prevModLine,modLine)
-
-                    newlines = []
-                    if len(args.wrapInIf):
-                        newlines.append("#if{}\n".format(args.wrapInIf))
-                    if modLine != "":
-                        newlines += ["{0}\n".format(el) for el in modLine.split("\n")]
-                    if len(args.wrapInIf):
-                        newlines.append("#else\n")
-                        newlines.append(line)
-                        newlines.append("#endif\n")
-                        if args.verbose or args.noOutput:
-                             replacement = "".join(newlines)
-                             print_replace_action(filepath,lineno,prevModLine,replacement)
-                    outputlines += newlines 
-            else:
-                outputlines.append(line)
-    if len(outputlines):
-        outputlines[-1] = outputlines[-1].rstrip("\n")
-    if not args.noOutput:
-        if args.inplace:
-            if args.verbose:
-                print("directly apply changes to original file '{0}'".format(filepath),file=sys.stderr)
-            with open(filepath,"w") as target:
-                target.writelines(outputlines)
-        else: 
-            print("".join(outputlines))
+                                                if j != len(parts)-1:
+                                                    result += "_"
+                                    # upper / lower
+                                    if args.lower:
+                                        return result.lower()
+                                    elif args.upper:
+                                        return result.upper()
+                                    else:
+                                        return result
+                                modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
+                                                 repl    = replaceAndChangeCase_,\
+                                                 string  = modLine,\
+                                                 count   = 0, flags = flag) # 0 - replace all matches
+                            else:
+                                modLine = re.sub(pattern = r"{0}".format(args.patterns[2*i]),\
+                                                 repl    = r"{0}".format(args.patterns[2*i+1]),\
+                                                 string  = modLine,\
+                                                 count   = 0, flags = flag) # 0 - replace all matches
+                            if (args.verbose or args.noOutput) and prevModLine != modLine:
+                                print_replace_action(filepath,lineno,prevModLine,modLine)
+    
+                        newlines = []
+                        if len(args.wrapInIf):
+                            newlines.append("#if{}\n".format(args.wrapInIf))
+                        if modLine != "":
+                            newlines += ["{0}\n".format(el) for el in modLine.split("\n")]
+                        if len(args.wrapInIf):
+                            newlines.append("#else\n")
+                            newlines.append(line)
+                            newlines.append("#endif\n")
+                            if args.verbose or args.noOutput:
+                                 replacement = "".join(newlines)
+                                 print_replace_action(filepath,lineno,prevModLine,replacement)
+                        outputlines += newlines 
+                else:
+                    outputlines.append(line)
+        if len(outputlines):
+            outputlines[-1] = outputlines[-1].rstrip("\n")
+        if not args.noOutput:
+            if args.inplace:
+                if args.verbose:
+                    print("directly apply changes to original file '{0}'".format(filepath),file=sys.stderr)
+                with open(filepath,"w") as target:
+                    target.writelines(outputlines)
+            else: 
+                print("".join(outputlines))
+except sre_constants.error as e:
+    print("ERROR: {} in pattern '{}'".format(e.msg,e.pattern),file=sys.stderr)
+except Exception as e:
+    print("ERROR: "+str(e),file=sys.stderr)
+    
