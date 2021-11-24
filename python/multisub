@@ -18,6 +18,7 @@ def parseArguments():
     parser.add_argument('--separator', type=str, default=r":-", nargs="?", help=r"Characters regarded as separator between filepath and lineno [default=':-']")
     parser.add_argument('-v,--verbose', dest="verbose", action="store_true", help="Verbose output")
     parser.add_argument('-n,--show-only-changes', dest="noOutput", action="store_true", help="Dry run; show only changes do not generate any output (to stdout or orginal file)")
+    parser.add_argument('--show-individual-changes', dest="showIndividualChanges", action="store_true", help="Show individual changes; -n (--show-only-changes) must be specified too.")
     parser.add_argument('--nop',dest="noOp", action="store_true", help="Do nothing at all.")
     group_postprocess = parser.add_argument_group("Post-process replacements/search results")
     # post-procesing
@@ -28,8 +29,8 @@ def parseArguments():
     group_postprocess.add_argument('-C,--camel-case', dest="camelCase", action="store_true", help="Convert ALL replacements/search results to 'camel case'.")
     group_postprocess.add_argument('-U,--underscores', dest="underscores", action="store_true", help="Convert ALL replacements/search results to 'underscore case'.")
     # defaults
-    parser.set_defaults(ignoreCase=False,verbose=False,inplace=False,noOutput=False,writeInputLines=False,noOp=False,\
-            camelCase=False,underscores=False)
+    parser.set_defaults(ignoreCase=False,verbose=False,inplace=False,noOutput=False,showIndividualChanges=False,
+            writeInputLines=False,noOp=False,camelCase=False,underscores=False)
     return parser.parse_args()
 
 args = parseArguments()
@@ -40,6 +41,11 @@ if args.lower and args.upper:
     print("ERROR: please specify only one of upper ('-u') and lower ('-l'). ABORT",file=sys.stderr)
 if args.camelCase and args.underscores:
     print("ERROR: please specify only one of underscores ('-U') and camel case ('-C'). ABORT",file=sys.stderr)
+verbose = False
+if args.noOutput or args.verbose:
+    verbose=True
+if args.showIndividualChanges and not verbose:
+    print("ERROR: please use '--show-individual-changes' only in combination with '-n' ('--show-only-changes') or '-v' ('--verbose'). ABORT",file=sys.stderr)
 # parsing
 flag = re.IGNORECASE if args.ignoreCase else 0
 if not args.writeInputLines and not len(args.patterns) and not len(args.deletePatterns) and\
@@ -93,17 +99,24 @@ def print_colored(msg,color,end="\n"):
         msg = "".join([color,msg,termcolors.ENDC])
     print(msg,end=end,file=sys.stderr)
 
-def print_erase_action(filepath,lineno,original):
-    msg = "{0}:".format(filepath)
-    print_colored(msg,termcolors.OKCYAN,end="")
-    msg = "{0}:".format(lineno+1)
-    print_colored(msg,termcolors.OKBLUE)
+
+change_num = 1
+def print_erase_action(filepath,lineno,original,print_change_num=False):
+    global change_num
+    if not print_change_num or change_num == 1:
+        msg = "{0}:".format(filepath)
+        print_colored(msg,termcolors.OKCYAN,end="")
+        msg = "{0}:".format(lineno+1)
+        print_colored(msg,termcolors.OKBLUE)
+    if print_change_num:
+        print_colored("{}:".format(change_num),termcolors.ENDC)
+        change_num += 1
     parts = original.rstrip("\n").split("\n")
     msg = "\n".join(["-{}".format(part) for part in parts]) 
     print_colored(msg,termcolors.FAIL)
 
 def print_replace_action(filepath,lineno,original,replacement):
-    print_erase_action(filepath,lineno,original)
+    print_erase_action(filepath,lineno,original,args.showIndividualChanges)
     parts = replacement.rstrip("\n").split("\n")
     msg = "\n".join(["+{}".format(part) for part in parts]) 
     print_colored(msg,termcolors.OKGREEN)
@@ -117,9 +130,10 @@ try:
                 modLine = line.rstrip("\n")
                 entry = next((entry for entry in entries if lineno+1 == entry[0]),None)
                 if entry:
+                    change_num = 1
                     # apply
                     if args.writeInputLines:
-                        if (args.verbose or args.noOutput) and entry[1] != modLine:
+                        if verbose and entry[1] != modLine:
                            print_replace_action(filepath,lineno,modLine,entry[1])
                         modLine = entry[1]
                     # erase lines
@@ -127,7 +141,7 @@ try:
                     for pattern in args.eraseLinePatterns:
                         pEraseLine = re.compile(r"{0}".format(pattern))
                         if pEraseLine.search(line):
-                            if (args.verbose or args.noOutput):
+                            if verbose:
                                 print_erase_action(filepath,lineno,modLine)
                             eraseLine = True
                             break
@@ -183,7 +197,7 @@ try:
                                                  repl    = r"{0}".format(args.patterns[2*i+1]),\
                                                  string  = modLine,\
                                                  count   = 0, flags = flag) # 0 - replace all matches
-                            if (args.verbose or args.noOutput) and prevModLine != modLine:
+                            if verbose and args.showIndividualChanges and prevModLine!= modLine:
                                 print_replace_action(filepath,lineno,prevModLine,modLine)
     
                         newlines = []
@@ -195,9 +209,13 @@ try:
                             newlines.append("#else\n")
                             newlines.append(line)
                             newlines.append("#endif\n")
-                            if args.verbose or args.noOutput:
-                                 replacement = "".join(newlines)
-                                 print_replace_action(filepath,lineno,prevModLine,replacement)
+                            if verbose and args.showIndividualChanges:
+                               replacement = "".join(newlines)
+                               print_replace_action(filepath,lineno,modLine,replacement)
+                        if verbose and not args.showIndividualChanges:
+                           replacement = "".join(newlines)
+                           if replacement!=line:
+                               print_replace_action(filepath,lineno,line.rstrip("\n"),replacement)
                         outputlines += newlines 
                 else:
                     outputlines.append(line)

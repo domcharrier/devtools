@@ -137,10 +137,14 @@ the `#if<expression>` branch.
 
 ```shell
 usage: multisub [-h] [-p,--patterns PATTERNS [PATTERNS ...]]
+                [-s,--search SEARCHPATTERNS [SEARCHPATTERNS ...]]
                 [-d,--delete-patterns DELETEPATTERNS [DELETEPATTERNS ...]]
-                [-w,--wrap-in-ifelse [WRAPINIF]] [--separator [SEPARATOR]]
-                [-s,--case-sensitive] [-l,--lower] [-u,--upper]
-                [-i,--in-place] [-v,--verbose] [-c,--show-only-changes]
+                [-e,--erase-lines ERASELINEPATTERNS [ERASELINEPATTERNS ...]]
+                [-I,--inplace] [-a,--write-input-lines] [--min MIN]
+                [--max MAX] [--separator [SEPARATOR]] [-v,--verbose]
+                [-n,--show-only-changes] [--show-individual-changes] [--nop]
+                [-w,--wrap-in-ifelse [WRAPINIF]] [-i,--case-insensitive]
+                [-l,--lower] [-u,--upper] [-C,--camel-case] [-U,--underscores]
                 [input]
 
 multisub - Perform regex replacement operations based on grep-output-like
@@ -158,31 +162,55 @@ optional arguments:
                         Search patterns (first, third, ...) and their
                         replacement (second, fourth, ...). List must have even
                         length.
+  -s,--search SEARCHPATTERNS [SEARCHPATTERNS ...]
+                        Specify only search patterns.
   -d,--delete-patterns DELETEPATTERNS [DELETEPATTERNS ...]
                         Patterns to delete
+  -e,--erase-lines ERASELINEPATTERNS [ERASELINEPATTERNS ...]
+                        Erase whole lines that contain one of the specified
+                        patterns.
+  -I,--inplace          Apply replacement action directly to original file(s)
+                        [default=False]
+  -a,--write-input-lines
+                        Write lines as specified in the input file to the
+                        destination file(s). Has precedence over other
+                        modifications.
+  --min MIN             Minimum line number (inclusive) to consider
+                        [default=-1]
+  --max MAX             Maximum line number (inclusive) to consider
+                        [default=sys.maxsize]
+  --separator [SEPARATOR]
+                        Characters regarded as separator between filepath and
+                        lineno [default=':-']
+  -v,--verbose          Verbose output
+  -n,--show-only-changes
+                        Dry run; show only changes do not generate any output
+                        (to stdout or orginal file)
+  --show-individual-changes
+                        Show individual changes; -n (--show-only-changes) must
+                        be specified too.
+  --nop                 Do nothing at all.
+
+Post-process replacements/search results:
   -w,--wrap-in-ifelse [WRAPINIF]
                         Wrap modified and original line in '#if<expression>
                         <modified> #else <original> #endif' construct
-  --separator [SEPARATOR]
-                        Characters regarded as separator between filepath and
-                        lineno [default='\s:']
-  -s,--case-sensitive   Do not ignore case when search for patterns
+  -i,--case-insensitive
+                        Ignore case when searching for patterns
                         [default=False]
-  -l,--lower            Convert ALL replacements to lower case
-  -u,--upper            Convert ALL replacements to upper case
-  -i,--in-place         Apply replacement action directly to original file(s)
-                        [default=False]
-  -v,--verbose          Verbose output
-  -c,--show-only-changes
-                        Show only changes do not generate any output (to
-                        stdout or orginal file)
+  -l,--lower            Convert ALL replacements/search results to lower case
+  -u,--upper            Convert ALL replacements/search results to upper case
+  -C,--camel-case       Convert ALL replacements/search results to 'camel
+                        case'.
+  -U,--underscores      Convert ALL replacements/search results to 'underscore
+                        case'.
 
 ```
 
-These options are displayed when calling `structviz` with `--help` or `-h`.
+These options are displayed when calling `multisub` with `--help` or `-h`.
 
 ```shell
-structviz --help
+multisub --help
 ```
 
 ### Example
@@ -222,32 +250,46 @@ example.f90:5:end subroutine
 * `^subroutine` by `void`
 * `(a,b)` by `(int a, int b)`
 * `integer :: <identifier> = 0` by `<identifier> = 0;` (search ignores case by default)
+* `!` by `//`
 
-```
-grep -H -n "^" example.f90 -H -n\
-   multisub -p "end subroutine" "}" "^subroutine" "void" "\(a,b\)" "(int a, int b) {" "integer :: (a|b) = 0" "\1 = 0;"
+```shell
+grep -H -n "^" example.f90 -H -n |\
+  multisub -p "end subroutine" "}" "^subroutine" "void" "\(a,b\)" "(int a, int b) {" "integer :: (a|b) = 0" "\1 = 0;" "\!" "//"
 ```
 
 *Output 2:*
 
-```
-! example.f90
+```C
+// example.f90
 void mysubroutine(int a, int b) {
   a = 0;
   b = 0;
 }
 ```
 
-3. You can also display the changes that would be made by adding the `-c` switch:
+3. You can also display the changes that would be made by adding the `-n` switch:
 
 *Output 3:*
 
-```
-INFO: example.f90:1: replace 'subroutine mysubroutine(a,b)' -> 'void mysubroutine(a,b)'
-INFO: example.f90:1: replace 'void mysubroutine(a,b)' -> 'void mysubroutine(int a, int b) {'
-INFO: example.f90:2: replace '  integer :: a = 0' -> '  a = 0;'
-INFO: example.f90:3: replace '  INTEGER :: b = 0' -> '  b = 0;'
-INFO: example.f90:4: replace 'end subroutine' -> '}'
+```shell
+example.f90:1:
+-! example.f90
++// example.f90
+example.f90:2:
+-subroutine mysubroutine(a,b)
++void mysubroutine(int a, int b) {
+example.f90:3:
+-  integer :: a = 0
++  a = 0;
+example.f90:4:
+-  INTEGER :: b = 0
++  INTEGER :: b = 0
+example.f90:5:
+-end subroutine
++}
 ```
 
-4. To perform all changes in-place, use the `-i` switch (and remove the `-c` switch). 
+Lines starting with '-' and '+' indicate text that is 
+removed or added, respectively.
+
+4. To perform all changes in-place, use the `-I` switch (and remove the `-n` switch). 
