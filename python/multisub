@@ -133,7 +133,7 @@ try:
                     change_num = 1
                     # apply
                     if args.writeInputLines:
-                        if verbose and entry[1] != modLine:
+                        if verbose and args.showIndividualChanges and entry[1] != modLine:
                            print_replace_action(filepath,lineno,modLine,entry[1])
                         modLine = entry[1]
                     # erase lines
@@ -199,7 +199,7 @@ try:
                                                  count   = 0, flags = flag) # 0 - replace all matches
                             if verbose and args.showIndividualChanges and prevModLine!= modLine:
                                 print_replace_action(filepath,lineno,prevModLine,modLine)
-    
+                        #  wrap up all changes to line
                         newlines = []
                         if len(args.wrapInIf):
                             newlines.append("#if{}\n".format(args.wrapInIf))
