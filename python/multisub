@@ -19,7 +19,7 @@ def parseArguments():
     parser.add_argument('-v,--verbose', dest="verbose", action="store_true", help="Verbose output")
     parser.add_argument('-n,--show-only-changes', dest="noOutput", action="store_true", help="Dry run; show only changes do not generate any output (to stdout or orginal file)")
     parser.add_argument('--show-individual-changes', dest="showIndividualChanges", action="store_true", help="Show individual changes; -n (--show-only-changes) must be specified too.")
-    parser.add_argument('--nop',dest="noOp", action="store_true", help="Do nothing at all.")
+    parser.add_argument('--nop',dest="noOp", action="store_true", help="No operation. Show original input if it comes from sys.stdin, show nothing if input comes frome other file.")
     group_postprocess = parser.add_argument_group("Post-process replacements/search results")
     # post-procesing
     group_postprocess.add_argument('-w,--wrap-in-ifelse', dest="wrapInIf", default="", nargs="?", help="Wrap modified and original line in '#if<expression> <modified> #else <original> #endif' construct ")
@@ -35,6 +35,8 @@ def parseArguments():
 
 args = parseArguments()
 if args.noOp:
+    if args.input == sys.stdin:
+        print(args.input.read(),end="")
     sys.exit()
 
 if args.lower and args.upper:
